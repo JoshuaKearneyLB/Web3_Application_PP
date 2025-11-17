@@ -3,6 +3,8 @@ pub mod error;
 pub mod instructions;
 pub mod state;
 
+// This is where the main smart contract is.
+
 use anchor_lang::prelude::*;
 
 pub use constants::*;
