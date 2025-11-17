@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 10, "column": 0}, "map": {"version":3,"sources":["file:///home/joshk14/voting_dapp/app/page.js"],"sourcesContent":["export default function Page() { return <h1>Voting DApp is running ✅</h1>; }\n"],"names":[],"mappings":";;;;;;AAAe,SAAS;IAAS,qBAAO,6PAAC;kBAAG;;;;;;AAA+B","debugId":null}}]
+}
