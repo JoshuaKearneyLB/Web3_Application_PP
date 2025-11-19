@@ -10,7 +10,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@solana/web3.js": "file:solana/wallet-adapter-react@solana/wallet-adpter-react-ui@solana/wallet-adapter-wallets",
+    "@solana/web3.js": "^1.95.4",
+    "@solana/wallet-adapter-react": "^0.19.12",
+    "@solana/wallet-adapter-react-ui": "^0.19.12",
+    "@solana/wallet-adapter-wallets": "^0.19.13",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
