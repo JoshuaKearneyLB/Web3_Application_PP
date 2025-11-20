@@ -11,16 +11,16 @@
   },
   "dependencies": {
     "@solana/web3.js": "^1.95.4",
-    "@solana/wallet-adapter-react": "^0.19.12",
-    "@solana/wallet-adapter-react-ui": "^0.19.12",
-    "@solana/wallet-adapter-wallets": "^0.19.13",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "@solana/wallet-adapter-react": "latest",
+    "@solana/wallet-adapter-react-ui": "latest",
+    "@solana/wallet-adapter-wallets": "latest",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
-    "@types/react": "^19.2.2",
-    "@types/react-dom": "^19.2.2",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
     "@vitejs/plugin-react": "^5.1.0",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
