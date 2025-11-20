@@ -14,6 +14,7 @@
     "@solana/wallet-adapter-react": "latest",
     "@solana/wallet-adapter-react-ui": "latest",
     "@solana/wallet-adapter-wallets": "latest",
+    "react-router-dom": "^6.28.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
