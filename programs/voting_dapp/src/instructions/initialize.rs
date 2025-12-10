@@ -21,7 +21,12 @@ pub struct Initialize<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handler(ctx: Context<Initialize>, did: String) -> Result<()> {
+pub fn handler(
+    ctx: Context<Initialize>,
+    did: String,
+    doc_uri: String,
+    doc_hash: Vec<u8>,
+) -> Result<()> {
     let voter = &mut ctx.accounts.voter;
 
     // reject DIDs that would overflow the allocated space
@@ -30,9 +35,25 @@ pub fn handler(ctx: Context<Initialize>, did: String) -> Result<()> {
         ErrorCode::DidTooLong
     );
 
+    // reject URIs that would overflow the allocated space
+    require!(
+        doc_uri.as_bytes().len() <= Voter::MAX_DOC_URI_LEN,
+        ErrorCode::DidDocUriTooLong
+    );
+
+    // require a fixed-size hash (e.g., SHA-256)
+    require!(
+        doc_hash.len() == Voter::DOC_HASH_LEN,
+        ErrorCode::DidDocHashLengthInvalid
+    );
+
     // write caller identity and a default vote status to the account
     voter.authority = ctx.accounts.authority.key();
     voter.did = did;
+    voter.doc_uri = doc_uri;
+    let mut fixed_hash = [0u8; Voter::DOC_HASH_LEN];
+    fixed_hash.copy_from_slice(&doc_hash);
+    voter.doc_hash = fixed_hash;
     voter.has_voted = false;
     voter.bump = ctx.bumps.voter;
 

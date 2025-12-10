@@ -1,0 +1,20 @@
+{
+  "id": "did:sol:local-demo",
+  "verificationMethod": [
+    {
+      "id": "did:sol:local-demo#key-1",
+      "type": "Ed25519VerificationKey2018",
+      "controller": "did:sol:local-demo",
+      "publicKeyBase58": "DemoPublicKey1111111111111111111111111111111111"
+    }
+  ],
+  "authentication": ["did:sol:local-demo#key-1"],
+  "assertionMethod": ["did:sol:local-demo#key-1"],
+  "service": [
+    {
+      "id": "did:sol:local-demo#resolver",
+      "type": "DIDResolutionService",
+      "serviceEndpoint": "http://localhost:5173/did.json"
+    }
+  ]
+}
