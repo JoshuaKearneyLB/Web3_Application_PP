@@ -4,7 +4,7 @@ import { useDid } from '../context/DidContext.jsx'
 
 function Profile() {
   const { publicKey } = useWallet()
-  const { did, linked, linkDid } = useDid()
+  const { did, linked, linkDid, didDocument } = useDid()
   const [feedback, setFeedback] = useState('')
 
   const handleLink = () => {
@@ -36,6 +36,14 @@ function Profile() {
         </div>
         {feedback && <p className="fine-print">{feedback}</p>}
       </div>
+      {linked && didDocument && (
+        <div className="card">
+          <p>DID document generated locally for this wallet:</p>
+          <pre className="fine-print" style={{ whiteSpace: 'pre-wrap' }}>
+{JSON.stringify(didDocument, null, 2)}
+          </pre>
+        </div>
+      )}
       {publicKey && (
         <p className="status">
           Connected wallet: <code>{publicKey.toBase58()}</code>

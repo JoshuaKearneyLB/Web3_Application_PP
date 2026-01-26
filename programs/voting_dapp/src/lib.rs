@@ -11,8 +11,11 @@ pub use constants::*;
 pub use instructions::*;
 pub use state::*;
 
+//Program ID declared here
 declare_id!("HRcWpZaiBKPPE9jHMYEFhAEkr1g1G4PDrGDNFFR7oL4U");
 
+
+//Exposing initialize and forward arguments to handler in initialize.rs
 #[program]
 pub mod voting_dapp {
     use super::*;
