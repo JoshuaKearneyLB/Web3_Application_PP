@@ -105,7 +105,7 @@ export const DidProvider = ({ children }) => {
         'SHA-256',
         new TextEncoder().encode(docJson),
       )
-      const docHash = Array.from(new Uint8Array(hashBuffer))
+      const docHash = Buffer.from(hashBuffer)
 
       const provider = new AnchorProvider(connection, wallet, { commitment: 'confirmed' })
       const program = new Program(idl, provider)
