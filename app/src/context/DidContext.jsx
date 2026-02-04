@@ -1,12 +1,20 @@
 import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react'
-import { useWallet } from '@solana/wallet-adapter-react'
+import { useWallet, useConnection } from '@solana/wallet-adapter-react'
+import { PublicKey, SystemProgram } from '@solana/web3.js'
+import { Program, AnchorProvider } from '@coral-xyz/anchor'
+import idl from '@idl/voting_dapp.json'
 
 const DidContext = createContext(null)
 
+const STORAGE_KEY_PREFIX = 'did_doc_'
 
 //Component that will wrap the app and gives out DID state
 export const DidProvider = ({ children }) => {
-  const { publicKey } = useWallet()
+  // useWallet() returns WalletContextState — the whole object satisfies AnchorProvider's
+  // wallet interface (publicKey, signTransaction, signAllTransactions at top level)
+  const wallet = useWallet()
+  const { publicKey } = wallet
+  const { connection } = useConnection()
 
   //If a wallet is connected build the DID string with prefix "did:sol:"
   const did = useMemo(
@@ -17,6 +25,8 @@ export const DidProvider = ({ children }) => {
   const [linked, setLinked] = useState(false)
   // Locally generated DID document for the connected wallet
   const [didDocument, setDidDocument] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
 
   // Build a simple DID document derived from the connected wallet.
   const buildDidDocument = useCallback(() => {
@@ -46,23 +56,92 @@ export const DidProvider = ({ children }) => {
     }
   }, [did, publicKey])
 
-  //Reset link state when wallet connection disconnects/changes or page is refreshed etc..
+  // Restore linked state when wallet changes or page refreshes.
+  // Checks localStorage first, then verifies the on-chain voter PDA still exists.
+  // If the chain was wiped (e.g. localnet restart) the stale localStorage entry is removed.
   useEffect(() => {
     setLinked(false)
     setDidDocument(null)
-  }, [did])
+    setError(null)
 
-  //Marks the DID as linked returning true or false for feedback
-  const linkDid = () => {
-    if (!did) return false
-    setLinked(true)
-    setDidDocument(buildDidDocument())
-    return true
+    if (!publicKey || !wallet.signTransaction) return
+
+    const storageKey = STORAGE_KEY_PREFIX + publicKey.toBase58()
+    const stored = localStorage.getItem(storageKey)
+    if (!stored) return
+
+    const provider = new AnchorProvider(connection, wallet, { commitment: 'confirmed' })
+    const program = new Program(idl, provider)
+    const [voterPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from('anchor'), publicKey.toBuffer()],
+      program.programId,
+    )
+
+    program.account.voter.fetch(voterPda)
+      .then(() => {
+        setDidDocument(JSON.parse(stored))
+        setLinked(true)
+      })
+      .catch(() => {
+        // On-chain account gone (chain was reset) — drop stale local copy
+        localStorage.removeItem(storageKey)
+      })
+  }, [publicKey]) // wallet and connection are stable provider references
+
+  // Builds the DID document, calls the on-chain initialize instruction,
+  // and persists the document to localStorage only after the transaction confirms.
+  const linkDid = async () => {
+    if (!did || !publicKey || !wallet.signTransaction) return false
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      const doc = buildDidDocument()
+      const docJson = JSON.stringify(doc)
+
+      // SHA-256 hash of the document via Web Crypto API — no Node crypto needed
+      const hashBuffer = await crypto.subtle.digest(
+        'SHA-256',
+        new TextEncoder().encode(docJson),
+      )
+      const docHash = Array.from(new Uint8Array(hashBuffer))
+
+      const provider = new AnchorProvider(connection, wallet, { commitment: 'confirmed' })
+      const program = new Program(idl, provider)
+
+      // Derive voter PDA — seeds must match the Rust SEED constant ("anchor") exactly
+      const [voterPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from('anchor'), publicKey.toBuffer()],
+        program.programId,
+      )
+
+      // Send the initialize transaction; Anchor handles serialization and confirmation
+      await program.methods
+        .initialize(did, doc.service[0].serviceEndpoint, docHash)
+        .accounts({
+          voter: voterPda,
+          authority: publicKey,
+          systemProgram: SystemProgram.programId,
+        })
+        .rpc()
+
+      // Only reached if the transaction confirmed — persist locally and flip state
+      localStorage.setItem(STORAGE_KEY_PREFIX + publicKey.toBase58(), docJson)
+      setDidDocument(doc)
+      setLinked(true)
+      return true
+    } catch (err) {
+      setError(err.message || 'Transaction failed')
+      return false
+    } finally {
+      setLoading(false)
+    }
   }
 
   //Exposes DID to all nested components in the react tree
   return (
-    <DidContext.Provider value={{ did, linked, linkDid, didDocument }}>
+    <DidContext.Provider value={{ did, linked, linkDid, didDocument, loading, error }}>
       {children}
     </DidContext.Provider>
   )

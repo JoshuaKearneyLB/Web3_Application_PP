@@ -4,12 +4,13 @@ import { useDid } from '../context/DidContext.jsx'
 
 function Profile() {
   const { publicKey } = useWallet()
-  const { did, linked, linkDid, didDocument } = useDid()
+  const { did, linked, linkDid, didDocument, loading, error } = useDid()
   const [feedback, setFeedback] = useState('')
 
-  const handleLink = () => {
-    const ok = linkDid()
-    setFeedback(ok ? 'DID linked for this wallet.' : 'Connect a wallet first.')
+  const handleLink = async () => {
+    setFeedback('')
+    const ok = await linkDid()
+    if (ok) setFeedback('DID linked and registered on-chain.')
   }
 
   return (
@@ -27,14 +28,15 @@ function Profile() {
           <li>Button to register to vote</li>
         </ul>
         <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          <button className="nav-btn inline" onClick={handleLink} disabled={!did}>
-            {linked ? 'DID Linked' : 'Link DID'}
+          <button className="nav-btn inline" onClick={handleLink} disabled={!did || loading || linked}>
+            {loading ? 'Signing…' : linked ? 'DID Linked' : 'Link DID'}
           </button>
           <span className="fine-print">
             {linked ? 'Ready to register and vote.' : 'Link your DID to proceed.'}
           </span>
         </div>
         {feedback && <p className="fine-print">{feedback}</p>}
+        {error && <p className="fine-print" style={{ color: 'red' }}>{error}</p>}
       </div>
       {linked && didDocument && (
         <div className="card">
