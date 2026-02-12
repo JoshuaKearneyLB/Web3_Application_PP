@@ -24,7 +24,6 @@ function Profile() {
             Show DID: {did ? <code>{did}</code> : 'Connect wallet to derive DID'}
           </li>
           <li>Show fake VC (eligibility) and region</li>
-          <li>Button to link DID before registering to vote</li>
           <li>Button to register to vote</li>
         </ul>
         <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
