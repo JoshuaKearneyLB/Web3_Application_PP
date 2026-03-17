@@ -28,4 +28,12 @@ pub mod voting_dapp {
     ) -> Result<()> {
         initialize::handler(ctx, did, doc_uri, doc_hash)
     }
+
+    pub fn create_candidate(ctx: Context<CreateCandidate>, name: String) -> Result<()> {
+        create_candidate::handler(ctx, name)
+    }
+
+    pub fn vote(ctx: Context<Vote>) -> Result<()> {
+        vote::handler(ctx)
+    }
 }

@@ -10,4 +10,10 @@ pub enum ErrorCode {
     DidDocUriTooLong,
     #[msg("DID document hash must be 32 bytes (e.g. SHA-256)")]
     DidDocHashLengthInvalid,
+    #[msg("Candidate name is too long")]
+    CandidateNameTooLong,
+    #[msg("Candidate name cannot be empty")]
+    CandidateNameEmpty,
+    #[msg("Voter has already voted")]
+    AlreadyVoted,
 }

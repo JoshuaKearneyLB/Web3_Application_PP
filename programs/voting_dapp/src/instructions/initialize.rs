@@ -21,7 +21,7 @@ pub struct Initialize<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handler(
+pub(crate) fn handler(
     ctx: Context<Initialize>,
     did: String,
     doc_uri: String,

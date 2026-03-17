@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::constants::{DID_DOC_URI_MAX_LENGTH, DID_MAX_LENGTH};
+use crate::constants::{CANDIDATE_NAME_MAX_LENGTH, DID_DOC_URI_MAX_LENGTH, DID_MAX_LENGTH};
 
 // Create a voter account structure
 #[account]
@@ -25,4 +25,19 @@ impl Voter {
         + Self::DOC_HASH_LEN // doc_hash bytes
         + 1 // has_voted
         + 1; // bump
+}
+
+// Stores a poll candidate name and its running vote tally
+#[account]
+pub struct Candidate {
+    pub name: String,       // Candidate name e.g. "Alice"
+    pub vote_count: u64,    // Incremented each time a voter picks this candidate
+    pub bump: u8,
+}
+
+impl Candidate {
+    pub const MAX_NAME_LEN: usize = CANDIDATE_NAME_MAX_LENGTH;
+    pub const INIT_SPACE: usize = 4 + Self::MAX_NAME_LEN  // name string (4-byte length prefix + data)
+        + 8   // vote_count (u64)
+        + 1;  // bump
 }

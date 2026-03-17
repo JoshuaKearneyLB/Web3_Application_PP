@@ -9,3 +9,7 @@ pub const DID_MAX_LENGTH: usize = 64;
 
 // Maximum length for an off-chain DID document URI.
 pub const DID_DOC_URI_MAX_LENGTH: usize = 200;
+
+// Seed and max length for candidate accounts
+pub const CANDIDATE_SEED: &str = "candidate";
+pub const CANDIDATE_NAME_MAX_LENGTH: usize = 64;
