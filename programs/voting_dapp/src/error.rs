@@ -16,4 +16,12 @@ pub enum ErrorCode {
     CandidateNameEmpty,
     #[msg("Voter has already voted")]
     AlreadyVoted,
+    #[msg("Only the admin wallet can perform this action")]
+    Unauthorized,
+    #[msg("Voting is not currently active")]
+    VotingClosed,
+    #[msg("Poll name cannot be empty")]
+    PollNameEmpty,
+    #[msg("Poll name is too long")]
+    PollNameTooLong,
 }

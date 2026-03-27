@@ -29,8 +29,16 @@ pub mod voting_dapp {
         initialize::handler(ctx, did, doc_uri, doc_hash)
     }
 
+    pub fn create_poll(ctx: Context<CreatePoll>, name: String) -> Result<()> {
+        create_poll::handler(ctx, name)
+    }
+
     pub fn create_candidate(ctx: Context<CreateCandidate>, name: String) -> Result<()> {
         create_candidate::handler(ctx, name)
+    }
+
+    pub fn toggle_voting(ctx: Context<ToggleVoting>) -> Result<()> {
+        toggle_voting::handler(ctx)
     }
 
     pub fn vote(ctx: Context<Vote>) -> Result<()> {

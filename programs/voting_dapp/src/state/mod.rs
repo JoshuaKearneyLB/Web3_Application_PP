@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::constants::{CANDIDATE_NAME_MAX_LENGTH, DID_DOC_URI_MAX_LENGTH, DID_MAX_LENGTH};
+use crate::constants::{CANDIDATE_NAME_MAX_LENGTH, DID_DOC_URI_MAX_LENGTH, DID_MAX_LENGTH, POLL_NAME_MAX_LENGTH};
 
 // Create a voter account structure
 #[account]
@@ -39,5 +39,22 @@ impl Candidate {
     pub const MAX_NAME_LEN: usize = CANDIDATE_NAME_MAX_LENGTH;
     pub const INIT_SPACE: usize = 4 + Self::MAX_NAME_LEN  // name string (4-byte length prefix + data)
         + 8   // vote_count (u64)
+        + 1;  // bump
+}
+
+// The single poll account that controls the voting event
+#[account]
+pub struct Poll {
+    pub admin: Pubkey,      // Wallet that can create candidates and manage the poll
+    pub name: String,       // Poll title e.g. "Student Council Election"
+    pub is_active: bool,    // Whether voting is currently open
+    pub bump: u8,
+}
+
+impl Poll {
+    pub const MAX_NAME_LEN: usize = POLL_NAME_MAX_LENGTH;
+    pub const INIT_SPACE: usize = 32  // admin pubkey
+        + 4 + Self::MAX_NAME_LEN  // name string
+        + 1   // is_active
         + 1;  // bump
 }

@@ -10,6 +10,7 @@ function CandidatesVote() {
   const { publicKey } = wallet
   const { connection } = useConnection()
   const { linked } = useDid()
+  const [poll, setPoll] = useState(null)
   const [candidates, setCandidates] = useState([])
   const [hasVoted, setHasVoted] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -24,6 +25,20 @@ function CandidatesVote() {
   const fetchData = useCallback(async () => {
     if (!publicKey) return
     const program = buildProgram()
+
+    // Fetch poll state
+    const [pollPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from('poll')],
+      program.programId,
+    )
+    try {
+      const pollAccount = await program.account.poll.fetch(pollPda)
+      setPoll(pollAccount)
+    } catch {
+      setPoll(null)
+    }
+
+    // Fetch candidates
     const all = await program.account.candidate.all()
     setCandidates(all.sort((a, b) => a.account.name.localeCompare(b.account.name)))
 
@@ -50,6 +65,10 @@ function CandidatesVote() {
     setError(null)
     try {
       const program = buildProgram()
+      const [pollPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from('poll')],
+        program.programId,
+      )
       const [candidatePda] = PublicKey.findProgramAddressSync(
         [Buffer.from('candidate'), Buffer.from(candidate.account.name)],
         program.programId,
@@ -61,6 +80,7 @@ function CandidatesVote() {
       await program.methods
         .vote()
         .accounts({
+          poll: pollPda,
           candidate: candidatePda,
           voter: voterPda,
           authority: publicKey,
@@ -83,10 +103,19 @@ function CandidatesVote() {
           <p>Link your DID on the Profile page before voting.</p>
           <p className="fine-print">Voting is disabled until your DID is linked.</p>
         </div>
+      ) : !poll ? (
+        <div className="card">
+          <p>No poll has been created yet.</p>
+          <p className="fine-print">An admin needs to create a poll first.</p>
+        </div>
       ) : (
         <div className="card">
+          <p>Poll: <strong>{poll.name}</strong></p>
+          {!poll.isActive && (
+            <p className="fine-print" style={{ color: 'orange' }}>Voting is currently closed.</p>
+          )}
           {candidates.length === 0 ? (
-            <p>No candidates yet — ask an admin to add some.</p>
+            <p className="fine-print">No candidates yet — ask an admin to add some.</p>
           ) : (
             <>
               {hasVoted && (
@@ -99,7 +128,7 @@ function CandidatesVote() {
                     <button
                       className="nav-btn inline"
                       onClick={() => handleVote({ account })}
-                      disabled={hasVoted || loading}
+                      disabled={hasVoted || loading || !poll.isActive}
                     >
                       {loading && votingFor === account.name ? 'Voting…' : 'Vote'}
                     </button>

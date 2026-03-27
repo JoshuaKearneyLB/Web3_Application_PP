@@ -1,14 +1,22 @@
 use anchor_lang::prelude::*;
 
-use crate::{constants::{CANDIDATE_SEED, CANDIDATE_NAME_MAX_LENGTH}, error::ErrorCode, state::Candidate};
+use crate::{constants::{CANDIDATE_SEED, CANDIDATE_NAME_MAX_LENGTH, POLL_SEED}, error::ErrorCode, state::{Candidate, Poll}};
 
 #[derive(Accounts)]
 #[instruction(name: String)]
 pub struct CreateCandidate<'info> {
+    // The poll account — only the poll admin can create candidates
+    #[account(
+        seeds = [POLL_SEED.as_bytes()],
+        bump = poll.bump,
+        has_one = admin,
+    )]
+    pub poll: Account<'info, Poll>,
+
     // PDA for this candidate, seeded by "candidate" + name so duplicate names are impossible
     #[account(
         init,
-        payer = authority,
+        payer = admin,
         space = 8 + Candidate::INIT_SPACE,
         seeds = [CANDIDATE_SEED.as_bytes(), name.as_bytes()],
         bump
@@ -16,7 +24,7 @@ pub struct CreateCandidate<'info> {
     pub candidate: Account<'info, Candidate>,
 
     #[account(mut)]
-    pub authority: Signer<'info>,
+    pub admin: Signer<'info>,
 
     pub system_program: Program<'info, System>,
 }

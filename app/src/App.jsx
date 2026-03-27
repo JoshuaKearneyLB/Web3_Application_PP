@@ -17,11 +17,14 @@ import Results from './pages/Results.jsx'
 import Admin from './pages/Admin.jsx'
 import Connect from './pages/Connect.jsx'
 
+// Must match ADMIN_PUBKEY in constants.rs
+const ADMIN_PUBKEY = '4Dx9jxLKkqM3J7t4R3Q4G3YnzKKvKhJJn5CWVgCFrQD3'
+
 const NAV_ITEMS = [
   { id: 'profile', label: 'Profile/DID', to: '/profile' },
   { id: 'candidates', label: 'Candidates & Vote', to: '/candidates' },
   { id: 'results', label: 'Results', to: '/results' },
-  { id: 'admin', label: 'Admin', to: '/admin' },
+  { id: 'admin', label: 'Admin', to: '/admin', adminOnly: true },
 ]
 
 function App() {
@@ -37,6 +40,8 @@ function App() {
     }
   }, [isConnected, location.pathname, navigate])
 
+  const isAdmin = publicKey?.toBase58() === ADMIN_PUBKEY
+
   const ProtectedLayout = () => {
     if (!isConnected) {
       return <Navigate to="/connect" replace />
@@ -45,15 +50,17 @@ function App() {
     return (
       <>
         <nav className="nav">
-          {NAV_ITEMS.map((item) => (
-            <NavLink
-              key={item.id}
-              to={item.to}
-              className={({ isActive }) => (isActive ? 'nav-btn active' : 'nav-btn')}
-            >
-              {item.label}
-            </NavLink>
-          ))}
+          {NAV_ITEMS
+            .filter((item) => !item.adminOnly || isAdmin)
+            .map((item) => (
+              <NavLink
+                key={item.id}
+                to={item.to}
+                className={({ isActive }) => (isActive ? 'nav-btn active' : 'nav-btn')}
+              >
+                {item.label}
+              </NavLink>
+            ))}
         </nav>
         <Outlet />
       </>
