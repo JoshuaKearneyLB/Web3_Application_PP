@@ -44,4 +44,24 @@ pub mod voting_dapp {
     pub fn vote(ctx: Context<Vote>) -> Result<()> {
         vote::handler(ctx)
     }
+
+    pub fn close_candidate(ctx: Context<CloseCandidate>) -> Result<()> {
+        close_candidate::handler(ctx)
+    }
+
+    pub fn close_poll(ctx: Context<ClosePoll>) -> Result<()> {
+        close_poll::handler(ctx)
+    }
+
+    pub fn issue_credential(
+        ctx: Context<IssueCredential>,
+        credential_hash: Vec<u8>,
+        identity_hash: Vec<u8>,
+    ) -> Result<()> {
+        issue_credential::handler(ctx, credential_hash, identity_hash)
+    }
+
+    pub fn revoke_credential(ctx: Context<RevokeCredential>) -> Result<()> {
+        revoke_credential::handler(ctx)
+    }
 }

@@ -24,4 +24,14 @@ pub enum ErrorCode {
     PollNameEmpty,
     #[msg("Poll name is too long")]
     PollNameTooLong,
+    #[msg("Credential has been revoked")]
+    CredentialRevoked,
+    #[msg("Credential subject does not match the authority")]
+    CredentialSubjectMismatch,
+    #[msg("Credential hash must be 32 bytes")]
+    CredentialHashInvalid,
+    #[msg("Identity hash must be 32 bytes")]
+    IdentityHashInvalid,
+    #[msg("Poll must be closed before it can be deleted")]
+    PollStillActive,
 }

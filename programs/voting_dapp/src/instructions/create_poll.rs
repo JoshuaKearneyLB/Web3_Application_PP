@@ -5,12 +5,12 @@ use crate::{constants::{ADMIN_PUBKEY, POLL_SEED, POLL_NAME_MAX_LENGTH}, error::E
 #[derive(Accounts)]
 #[instruction(name: String)]
 pub struct CreatePoll<'info> {
-    // Single poll PDA — seeded by "poll" so only one can exist
+    // Poll PDA — seeded by "poll" + name so multiple polls can coexist
     #[account(
         init,
         payer = authority,
         space = 8 + Poll::INIT_SPACE,
-        seeds = [POLL_SEED.as_bytes()],
+        seeds = [POLL_SEED.as_bytes(), name.as_bytes()],
         bump
     )]
     pub poll: Account<'info, Poll>,
@@ -38,7 +38,7 @@ pub(crate) fn handler(ctx: Context<CreatePoll>, name: String) -> Result<()> {
     let poll = &mut ctx.accounts.poll;
     poll.admin = ctx.accounts.authority.key();
     poll.name = name;
-    poll.is_active = false; // Voting starts closed; admin opens it when ready
+    poll.is_active = false;
     poll.bump = ctx.bumps.poll;
 
     Ok(())

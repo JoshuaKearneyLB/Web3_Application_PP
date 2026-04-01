@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::{constants::SEED, error::ErrorCode, state::Voter};
+use crate::{constants::{CREDENTIAL_SEED, SEED}, error::ErrorCode, state::{Credential, Voter}};
 
 // THe bundle of account this instruction will need for this call
 #[derive(Accounts)]
@@ -14,6 +14,14 @@ pub struct Initialize<'info> {
         bump
     )]
     pub voter: Account<'info, Voter>,
+
+    // The caller must have a valid credential issued by the admin
+    #[account(
+        seeds = [CREDENTIAL_SEED.as_bytes(), authority.key().as_ref()],
+        bump = credential.bump,
+    )]
+    pub credential: Account<'info, Credential>,
+
     #[account(mut)]
     pub authority: Signer<'info>,
 
@@ -27,6 +35,17 @@ pub(crate) fn handler(
     doc_uri: String,
     doc_hash: Vec<u8>,
 ) -> Result<()> {
+    // Credential must not be revoked
+    require!(
+        !ctx.accounts.credential.is_revoked,
+        ErrorCode::CredentialRevoked
+    );
+    // Credential must belong to this signer
+    require!(
+        ctx.accounts.credential.subject == ctx.accounts.authority.key(),
+        ErrorCode::CredentialSubjectMismatch
+    );
+
     let voter = &mut ctx.accounts.voter;
 
     // reject DIDs that would overflow the allocated space

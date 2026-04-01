@@ -7,18 +7,18 @@ use crate::{constants::{CANDIDATE_SEED, CANDIDATE_NAME_MAX_LENGTH, POLL_SEED}, e
 pub struct CreateCandidate<'info> {
     // The poll account — only the poll admin can create candidates
     #[account(
-        seeds = [POLL_SEED.as_bytes()],
+        seeds = [POLL_SEED.as_bytes(), poll.name.as_bytes()],
         bump = poll.bump,
         has_one = admin,
     )]
     pub poll: Account<'info, Poll>,
 
-    // PDA for this candidate, seeded by "candidate" + name so duplicate names are impossible
+    // PDA for this candidate, seeded by "candidate" + poll key + name
     #[account(
         init,
         payer = admin,
         space = 8 + Candidate::INIT_SPACE,
-        seeds = [CANDIDATE_SEED.as_bytes(), name.as_bytes()],
+        seeds = [CANDIDATE_SEED.as_bytes(), poll.key().as_ref(), name.as_bytes()],
         bump
     )]
     pub candidate: Account<'info, Candidate>,
@@ -37,6 +37,7 @@ pub(crate) fn handler(ctx: Context<CreateCandidate>, name: String) -> Result<()>
     );
 
     let candidate = &mut ctx.accounts.candidate;
+    candidate.poll = ctx.accounts.poll.key();
     candidate.name = name;
     candidate.vote_count = 0;
     candidate.bump = ctx.bumps.candidate;

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useWallet, useConnection } from '@solana/wallet-adapter-react'
-import { PublicKey } from '@solana/web3.js'
+import { PublicKey, SystemProgram } from '@solana/web3.js'
 import { Program, AnchorProvider } from '@coral-xyz/anchor'
 import idl from '@idl/voting_dapp.json'
 import { useDid } from '../context/DidContext.jsx'
@@ -10,7 +10,8 @@ function CandidatesVote() {
   const { publicKey } = wallet
   const { connection } = useConnection()
   const { linked } = useDid()
-  const [poll, setPoll] = useState(null)
+  const [activePolls, setActivePolls] = useState([])
+  const [selectedPoll, setSelectedPoll] = useState(null)
   const [candidates, setCandidates] = useState([])
   const [hasVoted, setHasVoted] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -26,64 +27,75 @@ function CandidatesVote() {
     if (!publicKey) return
     const program = buildProgram()
 
-    // Fetch poll state
-    const [pollPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from('poll')],
-      program.programId,
-    )
-    try {
-      const pollAccount = await program.account.poll.fetch(pollPda)
-      setPoll(pollAccount)
-    } catch {
-      setPoll(null)
+    // Fetch all polls, filter to active ones
+    const allPolls = await program.account.poll.all()
+    const active = allPolls.filter(p => p.account.isActive)
+    setActivePolls(active)
+
+    // Auto-select the first active poll if none selected
+    const current = selectedPoll
+      ? active.find(p => p.publicKey.equals(selectedPoll.publicKey))
+      : active[0] || null
+    setSelectedPoll(current)
+
+    if (!current) {
+      setCandidates([])
+      setHasVoted(false)
+      return
     }
 
-    // Fetch candidates
-    const all = await program.account.candidate.all()
-    setCandidates(all.sort((a, b) => a.account.name.localeCompare(b.account.name)))
+    // Fetch candidates for this poll
+    const allCandidates = await program.account.candidate.all()
+    const pollCandidates = allCandidates
+      .filter(c => c.account.poll.equals(current.publicKey))
+      .sort((a, b) => a.account.name.localeCompare(b.account.name))
+    setCandidates(pollCandidates)
 
-    // Check if this voter has already voted
-    const [voterPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from('anchor'), publicKey.toBuffer()],
+    // Check if voter has a VoteRecord for this poll
+    const [voteRecordPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from('vote_record'), current.publicKey.toBuffer(), publicKey.toBuffer()],
       program.programId,
     )
     try {
-      const voter = await program.account.voter.fetch(voterPda)
-      setHasVoted(voter.hasVoted)
+      await program.account.voteRecord.fetch(voteRecordPda)
+      setHasVoted(true)
     } catch {
       setHasVoted(false)
     }
-  }, [publicKey, buildProgram])
+  }, [publicKey, buildProgram, selectedPoll?.publicKey?.toBase58()])
 
   useEffect(() => {
-    if (linked) fetchData()
+    if (linked) {
+      fetchData()
+      const interval = setInterval(fetchData, 5000)
+      return () => clearInterval(interval)
+    }
   }, [linked, fetchData])
 
   const handleVote = async (candidate) => {
+    if (!selectedPoll) return
     setLoading(true)
     setVotingFor(candidate.account.name)
     setError(null)
     try {
       const program = buildProgram()
-      const [pollPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from('poll')],
-        program.programId,
-      )
-      const [candidatePda] = PublicKey.findProgramAddressSync(
-        [Buffer.from('candidate'), Buffer.from(candidate.account.name)],
-        program.programId,
-      )
       const [voterPda] = PublicKey.findProgramAddressSync(
         [Buffer.from('anchor'), publicKey.toBuffer()],
+        program.programId,
+      )
+      const [voteRecordPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from('vote_record'), selectedPoll.publicKey.toBuffer(), publicKey.toBuffer()],
         program.programId,
       )
       await program.methods
         .vote()
         .accounts({
-          poll: pollPda,
-          candidate: candidatePda,
+          poll: selectedPoll.publicKey,
+          candidate: candidate.publicKey,
           voter: voterPda,
+          voteRecord: voteRecordPda,
           authority: publicKey,
+          systemProgram: SystemProgram.programId,
         })
         .rpc()
       await fetchData()
@@ -103,42 +115,62 @@ function CandidatesVote() {
           <p>Link your DID on the Profile page before voting.</p>
           <p className="fine-print">Voting is disabled until your DID is linked.</p>
         </div>
-      ) : !poll ? (
+      ) : activePolls.length === 0 ? (
         <div className="card">
-          <p>No poll has been created yet.</p>
-          <p className="fine-print">An admin needs to create a poll first.</p>
+          <p>No active polls.</p>
+          <p className="fine-print">An admin needs to create a poll and open voting.</p>
         </div>
       ) : (
-        <div className="card">
-          <p>Poll: <strong>{poll.name}</strong></p>
-          {!poll.isActive && (
-            <p className="fine-print" style={{ color: 'orange' }}>Voting is currently closed.</p>
-          )}
-          {candidates.length === 0 ? (
-            <p className="fine-print">No candidates yet — ask an admin to add some.</p>
-          ) : (
-            <>
-              {hasVoted && (
-                <p className="fine-print">You have already cast your vote in this poll.</p>
-              )}
-              <ul>
-                {candidates.map(({ account }) => (
-                  <li key={account.name} style={{ marginBottom: '0.5rem' }}>
-                    {account.name} — {account.voteCount.toString()} votes{' '}
-                    <button
-                      className="nav-btn inline"
-                      onClick={() => handleVote({ account })}
-                      disabled={hasVoted || loading || !poll.isActive}
-                    >
-                      {loading && votingFor === account.name ? 'Voting…' : 'Vote'}
-                    </button>
-                  </li>
+        <>
+          {/* Poll selector if multiple active */}
+          {activePolls.length > 1 && (
+            <div className="card">
+              <p>Active polls:</p>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                {activePolls.map(p => (
+                  <button
+                    key={p.publicKey.toBase58()}
+                    className="nav-btn inline"
+                    onClick={() => setSelectedPoll(p)}
+                    style={{ fontWeight: selectedPoll?.publicKey.equals(p.publicKey) ? 'bold' : 'normal' }}
+                  >
+                    {p.account.name}
+                  </button>
                 ))}
-              </ul>
-            </>
+              </div>
+            </div>
           )}
-          {error && <p className="fine-print" style={{ color: 'red' }}>{error}</p>}
-        </div>
+
+          {selectedPoll && (
+            <div className="card">
+              <p>Poll: <strong>{selectedPoll.account.name}</strong></p>
+              {candidates.length === 0 ? (
+                <p className="fine-print">No candidates yet — ask an admin to add some.</p>
+              ) : (
+                <>
+                  {hasVoted && (
+                    <p className="fine-print">You have already cast your vote in this poll.</p>
+                  )}
+                  <ul>
+                    {candidates.map((c) => (
+                      <li key={c.account.name} style={{ marginBottom: '0.5rem' }}>
+                        {c.account.name} — {c.account.voteCount.toString()} votes{' '}
+                        <button
+                          className="nav-btn inline"
+                          onClick={() => handleVote(c)}
+                          disabled={hasVoted || loading}
+                        >
+                          {loading && votingFor === c.account.name ? 'Voting…' : 'Vote'}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              {error && <p className="fine-print" style={{ color: 'red' }}>{error}</p>}
+            </div>
+          )}
+        </>
       )}
     </section>
   )

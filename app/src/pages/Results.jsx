@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useWallet, useConnection } from '@solana/wallet-adapter-react'
-import { PublicKey } from '@solana/web3.js'
 import { Program, AnchorProvider } from '@coral-xyz/anchor'
 import idl from '@idl/voting_dapp.json'
 
@@ -8,7 +7,8 @@ function Results() {
   const wallet = useWallet()
   const { publicKey } = wallet
   const { connection } = useConnection()
-  const [poll, setPoll] = useState(null)
+  const [polls, setPolls] = useState([])
+  const [selectedPoll, setSelectedPoll] = useState(null)
   const [candidates, setCandidates] = useState([])
   const [loading, setLoading] = useState(false)
 
@@ -19,45 +19,74 @@ function Results() {
       const provider = new AnchorProvider(connection, wallet, { commitment: 'confirmed' })
       const program = new Program(idl, provider)
 
-      // Fetch poll
-      const [pollPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from('poll')],
-        program.programId,
-      )
-      try {
-        const pollAccount = await program.account.poll.fetch(pollPda)
-        setPoll(pollAccount)
-      } catch {
-        setPoll(null)
-      }
+      const allPolls = await program.account.poll.all()
+      setPolls(allPolls)
 
-      // Fetch candidates sorted by votes (highest first)
-      const all = await program.account.candidate.all()
-      setCandidates(all.sort((a, b) => b.account.voteCount.toNumber() - a.account.voteCount.toNumber()))
+      // Auto-select first poll if none selected
+      const current = selectedPoll
+        ? allPolls.find(p => p.publicKey.equals(selectedPoll.publicKey))
+        : allPolls[0] || null
+      setSelectedPoll(current)
+
+      const allCandidates = await program.account.candidate.all()
+      setCandidates(allCandidates)
     } finally {
       setLoading(false)
     }
-  }, [connection, wallet, publicKey])
+  }, [connection, wallet, publicKey, selectedPoll?.publicKey?.toBase58()])
 
   useEffect(() => {
     fetchResults()
+    const interval = setInterval(fetchResults, 5000)
+    return () => clearInterval(interval)
   }, [fetchResults])
+
+  // Candidates for selected poll, sorted by votes (highest first)
+  const pollCandidates = selectedPoll
+    ? candidates
+        .filter(c => c.account.poll.equals(selectedPoll.publicKey))
+        .sort((a, b) => b.account.voteCount.toNumber() - a.account.voteCount.toNumber())
+    : []
 
   return (
     <section className="page">
       <h2>Results</h2>
+
+      {/* Poll selector */}
+      {polls.length > 1 && (
+        <div className="card">
+          <p>Select a poll:</p>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {polls.map(p => (
+              <button
+                key={p.publicKey.toBase58()}
+                className="nav-btn inline"
+                onClick={() => setSelectedPoll(p)}
+                style={{ fontWeight: selectedPoll?.publicKey.equals(p.publicKey) ? 'bold' : 'normal' }}
+              >
+                {p.account.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <p>{poll ? <><strong>{poll.name}</strong> — {poll.isActive ? 'Voting open' : 'Voting closed'}</> : 'No poll created yet.'}</p>
+          <p>
+            {selectedPoll
+              ? <><strong>{selectedPoll.account.name}</strong> — {selectedPoll.account.isActive ? 'Voting open' : 'Voting closed'}</>
+              : 'No polls created yet.'}
+          </p>
           <button className="nav-btn inline" onClick={fetchResults} disabled={loading}>
             {loading ? 'Loading…' : 'Refresh'}
           </button>
         </div>
-        {candidates.length === 0 ? (
+        {pollCandidates.length === 0 ? (
           <p className="fine-print">No candidates yet.</p>
         ) : (
           <ul>
-            {candidates.map(({ account }) => (
+            {pollCandidates.map(({ account }) => (
               <li key={account.name}>
                 {account.name}: {account.voteCount.toString()} votes
               </li>

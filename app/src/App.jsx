@@ -15,6 +15,7 @@ import Profile from './pages/Profile.jsx'
 import CandidatesVote from './pages/CandidatesVote.jsx'
 import Results from './pages/Results.jsx'
 import Admin from './pages/Admin.jsx'
+import Resolver from './pages/Resolver.jsx'
 import Connect from './pages/Connect.jsx'
 
 // Must match ADMIN_PUBKEY in constants.rs
@@ -24,6 +25,7 @@ const NAV_ITEMS = [
   { id: 'profile', label: 'Profile/DID', to: '/profile' },
   { id: 'candidates', label: 'Candidates & Vote', to: '/candidates' },
   { id: 'results', label: 'Results', to: '/results' },
+  { id: 'resolver', label: 'DID Resolver', to: '/resolver' },
   { id: 'admin', label: 'Admin', to: '/admin', adminOnly: true },
 ]
 
@@ -86,6 +88,7 @@ function App() {
           <Route path="/profile" element={<Profile />} />
           <Route path="/candidates" element={<CandidatesVote />} />
           <Route path="/results" element={<Results />} />
+          <Route path="/resolver" element={<Resolver />} />
           <Route path="/admin" element={<Admin />} />
         </Route>
         <Route path="*" element={<Navigate to="/profile" replace />} />

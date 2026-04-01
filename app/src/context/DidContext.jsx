@@ -10,8 +10,6 @@ const STORAGE_KEY_PREFIX = 'did_doc_'
 
 //Component that will wrap the app and gives out DID state
 export const DidProvider = ({ children }) => {
-  // useWallet() returns WalletContextState — the whole object satisfies AnchorProvider's
-  // wallet interface (publicKey, signTransaction, signAllTransactions at top level)
   const wallet = useWallet()
   const { publicKey } = wallet
   const { connection } = useConnection()
@@ -25,14 +23,19 @@ export const DidProvider = ({ children }) => {
   const [linked, setLinked] = useState(false)
   // Locally generated DID document for the connected wallet
   const [didDocument, setDidDocument] = useState(null)
+  // On-chain credential data (null if no credential issued)
+  const [credential, setCredential] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  // Build a simple DID document derived from the connected wallet.
-  const buildDidDocument = useCallback(() => {
+  const hasCredential = Boolean(credential && !credential.isRevoked)
+
+  // Build a DID document derived from the connected wallet.
+  // If a credential exists, embed the VC inside the document.
+  const buildDidDocument = useCallback((credentialData) => {
     if (!publicKey || !did) return null
     const keyId = `${did}#key-1`
-    return {
+    const doc = {
       id: did,
       verificationMethod: [
         {
@@ -48,30 +51,59 @@ export const DidProvider = ({ children }) => {
         {
           id: `${did}#resolver`,
           type: 'DIDResolutionService',
-          // Placeholder endpoint for local/demo use; replace when wiring a resolver.
           serviceEndpoint: 'http://localhost:5173/did.json',
         },
       ],
       created: new Date().toISOString(),
     }
+
+    // Embed the VC inside the DID document if a credential exists
+    if (credentialData) {
+      doc.verifiableCredential = [{
+        '@context': ['https://www.w3.org/2018/credentials/v1'],
+        type: ['VerifiableCredential', 'VoterEligibilityCredential'],
+        issuer: `did:sol:${credentialData.issuer.toBase58()}`,
+        issuanceDate: new Date(credentialData.issuedAt.toNumber() * 1000).toISOString(),
+        credentialSubject: {
+          id: did,
+          eligibility: {
+            type: 'VoterEligibility',
+            eligible: true,
+            reason: 'Verified by election administrator',
+          },
+        },
+      }]
+    }
+
+    return doc
   }, [did, publicKey])
 
-  // Restore linked state when wallet changes or page refreshes.
-  // Checks localStorage first, then verifies the on-chain voter PDA still exists.
-  // If the chain was wiped (e.g. localnet restart) the stale localStorage entry is removed.
+  // Restore linked state and check credential when wallet changes or page refreshes.
   useEffect(() => {
     setLinked(false)
     setDidDocument(null)
+    setCredential(null)
     setError(null)
 
     if (!publicKey || !wallet.signTransaction) return
 
+    const provider = new AnchorProvider(connection, wallet, { commitment: 'confirmed' })
+    const program = new Program(idl, provider)
+
+    // Check for credential PDA
+    const [credentialPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from('credential'), publicKey.toBuffer()],
+      program.programId,
+    )
+    program.account.credential.fetch(credentialPda)
+      .then((cred) => setCredential(cred))
+      .catch(() => setCredential(null))
+
+    // Check for voter PDA (existing linked state)
     const storageKey = STORAGE_KEY_PREFIX + publicKey.toBase58()
     const stored = localStorage.getItem(storageKey)
     if (!stored) return
 
-    const provider = new AnchorProvider(connection, wallet, { commitment: 'confirmed' })
-    const program = new Program(idl, provider)
     const [voterPda] = PublicKey.findProgramAddressSync(
       [Buffer.from('anchor'), publicKey.toBuffer()],
       program.programId,
@@ -83,24 +115,23 @@ export const DidProvider = ({ children }) => {
         setLinked(true)
       })
       .catch(() => {
-        // On-chain account gone (chain was reset) — drop stale local copy
         localStorage.removeItem(storageKey)
       })
-  }, [publicKey]) // wallet and connection are stable provider references
+  }, [publicKey])
 
-  // Builds the DID document, calls the on-chain initialize instruction,
+  // Builds the DID document (with embedded VC), calls the on-chain initialize instruction,
   // and persists the document to localStorage only after the transaction confirms.
   const linkDid = async () => {
-    if (!did || !publicKey || !wallet.signTransaction) return false
+    if (!did || !publicKey || !wallet.signTransaction || !hasCredential) return false
 
     setLoading(true)
     setError(null)
 
     try {
-      const doc = buildDidDocument()
+      const doc = buildDidDocument(credential)
       const docJson = JSON.stringify(doc)
 
-      // SHA-256 hash of the document via Web Crypto API — no Node crypto needed
+      // SHA-256 hash of the document via Web Crypto API
       const hashBuffer = await crypto.subtle.digest(
         'SHA-256',
         new TextEncoder().encode(docJson),
@@ -110,23 +141,30 @@ export const DidProvider = ({ children }) => {
       const provider = new AnchorProvider(connection, wallet, { commitment: 'confirmed' })
       const program = new Program(idl, provider)
 
-      // Derive voter PDA — seeds must match the Rust SEED constant ("anchor") exactly
+      // Derive voter PDA
       const [voterPda] = PublicKey.findProgramAddressSync(
         [Buffer.from('anchor'), publicKey.toBuffer()],
         program.programId,
       )
 
-      // Send the initialize transaction; Anchor handles serialization and confirmation
+      // Derive credential PDA
+      const [credentialPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from('credential'), publicKey.toBuffer()],
+        program.programId,
+      )
+
+      // Send the initialize transaction — now requires the credential account
       await program.methods
         .initialize(did, doc.service[0].serviceEndpoint, docHash)
         .accounts({
           voter: voterPda,
+          credential: credentialPda,
           authority: publicKey,
           systemProgram: SystemProgram.programId,
         })
         .rpc()
 
-      // Only reached if the transaction confirmed — persist locally and flip state
+      // Only reached if the transaction confirmed
       localStorage.setItem(STORAGE_KEY_PREFIX + publicKey.toBase58(), docJson)
       setDidDocument(doc)
       setLinked(true)
@@ -139,9 +177,8 @@ export const DidProvider = ({ children }) => {
     }
   }
 
-  //Exposes DID to all nested components in the react tree
   return (
-    <DidContext.Provider value={{ did, linked, linkDid, didDocument, loading, error }}>
+    <DidContext.Provider value={{ did, linked, linkDid, didDocument, credential, hasCredential, loading, error }}>
       {children}
     </DidContext.Provider>
   )

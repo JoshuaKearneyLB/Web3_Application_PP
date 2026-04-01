@@ -14,9 +14,14 @@ pub const DID_DOC_URI_MAX_LENGTH: usize = 200;
 pub const CANDIDATE_SEED: &str = "candidate";
 pub const CANDIDATE_NAME_MAX_LENGTH: usize = 64;
 
-// Seed for the single poll account
+// Seed for poll accounts (multiple polls supported, seeded by name)
 pub const POLL_SEED: &str = "poll";
+// Seed for per-poll vote records
+pub const VOTE_RECORD_SEED: &str = "vote_record";
 pub const POLL_NAME_MAX_LENGTH: usize = 64;
+
+// Seed for credential accounts
+pub const CREDENTIAL_SEED: &str = "credential";
 
 // Hardcoded admin wallet — only this Phantom wallet can create polls and candidates
 pub const ADMIN_PUBKEY: &str = "4Dx9jxLKkqM3J7t4R3Q4G3YnzKKvKhJJn5CWVgCFrQD3";

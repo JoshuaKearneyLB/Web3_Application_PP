@@ -6,7 +6,7 @@ use crate::{constants::POLL_SEED, state::Poll};
 pub struct ToggleVoting<'info> {
     #[account(
         mut,
-        seeds = [POLL_SEED.as_bytes()],
+        seeds = [POLL_SEED.as_bytes(), poll.name.as_bytes()],
         bump = poll.bump,
         has_one = admin,
     )]
