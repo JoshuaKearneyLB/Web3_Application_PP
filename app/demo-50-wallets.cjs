@@ -5,20 +5,22 @@
  * 1. Start localnet:  anchor localnet  (in a separate terminal)
  * 2. Start frontend:  npm run dev  (in another terminal)
  * 3. In the browser: create a poll, add candidates, open voting
- * 4. Export your Phantom private key:
- *    Phantom → Settings → Security & Privacy → Export Private Key → copy the base58 string
- * 5. Run:  ADMIN_KEY=<your_key> node demo-50-wallets.cjs
+ * 4. Run:  node demo-50-wallets.cjs
  *
- * The script finds your active poll automatically, generates 50 voters,
- * issues credentials, registers DIDs, and casts random votes.
- * The admin key is only held in memory — never written to disk.
+ * The script reads your Phantom admin keypair from ~/.config/solana/phantom-wallet.json,
+ * finds the active poll automatically, generates 50 voters, issues credentials,
+ * registers DIDs, and casts random votes.
  */
 
 const { Keypair, Connection, PublicKey, SystemProgram, LAMPORTS_PER_SOL } = require('@solana/web3.js')
 const { AnchorProvider, Program, Wallet } = require('@coral-xyz/anchor')
-const bs58 = require('bs58')
 const crypto = require('crypto')
+const fs = require('fs')
+const os = require('os')
+const path = require('path')
 const idl = require('../target/idl/voting_dapp.json')
+
+const ADMIN_KEYPAIR_PATH = path.join(os.homedir(), '.config/solana/phantom-wallet.json')
 
 const RPC = 'http://127.0.0.1:8899'
 const NUM_VOTERS = 50
@@ -48,13 +50,13 @@ async function main() {
   const TOTAL_STEPS = 7
   console.log('\n=== 50-Wallet Voting Demo ===\n')
 
-  // Step 1: Load admin keypair
-  if (!process.env.ADMIN_KEY) {
-    console.error('ERROR: Set ADMIN_KEY env var to your Phantom private key (base58)')
-    console.error('Usage: ADMIN_KEY=<key> node demo-50-wallets.cjs')
+  // Step 1: Load admin keypair from file
+  if (!fs.existsSync(ADMIN_KEYPAIR_PATH)) {
+    console.error(`ERROR: Admin keypair not found at ${ADMIN_KEYPAIR_PATH}`)
     process.exit(1)
   }
-  const adminKeypair = Keypair.fromSecretKey(bs58.decode(process.env.ADMIN_KEY))
+  const secretKey = Uint8Array.from(JSON.parse(fs.readFileSync(ADMIN_KEYPAIR_PATH, 'utf-8')))
+  const adminKeypair = Keypair.fromSecretKey(secretKey)
   log(1, TOTAL_STEPS, 'Loading admin keypair...')
   console.log(`  Admin: ${adminKeypair.publicKey.toBase58()}`)
 
@@ -87,12 +89,18 @@ async function main() {
   await airdropAndConfirm(connection, adminKeypair.publicKey, 10 * LAMPORTS_PER_SOL)
   console.log('  Admin balance: 10 SOL')
 
-  // Step 3: Generate 50 wallets + airdrop
+  // Step 3: Generate wallets + airdrop (parallelized in chunks)
   log(3, TOTAL_STEPS, `Generating ${NUM_VOTERS} wallets and airdropping SOL...`)
   const voters = Array.from({ length: NUM_VOTERS }, () => Keypair.generate())
-  for (let i = 0; i < voters.length; i++) {
-    await airdropAndConfirm(connection, voters[i].publicKey, 0.5 * LAMPORTS_PER_SOL)
-    progress(i + 1, NUM_VOTERS)
+  const CHUNK = 25
+  let airdropDone = 0
+  for (let i = 0; i < voters.length; i += CHUNK) {
+    const chunk = voters.slice(i, i + CHUNK)
+    await Promise.all(chunk.map(v =>
+      airdropAndConfirm(connection, v.publicKey, 0.5 * LAMPORTS_PER_SOL)
+    ))
+    airdropDone += chunk.length
+    progress(airdropDone, NUM_VOTERS)
   }
 
   // Step 4: Issue credentials to all voters

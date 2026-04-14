@@ -32,9 +32,18 @@ function Admin() {
   const [candidates, setCandidates] = useState([])
   const [credentials, setCredentials] = useState([])
   const [voters, setVoters] = useState([])
+  const [credentialSearch, setCredentialSearch] = useState('')
+  const [voterSearch, setVoterSearch] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [feedback, setFeedback] = useState('')
+
+  const filteredCredentials = credentials.filter(c =>
+    c.account.subject.toBase58().toLowerCase().includes(credentialSearch.toLowerCase())
+  )
+  const filteredVoters = voters.filter(v =>
+    v.account.authority.toBase58().toLowerCase().includes(voterSearch.toLowerCase())
+  )
 
   const isAdmin = publicKey?.toBase58() === ADMIN_PUBKEY
 
@@ -434,11 +443,18 @@ function Admin() {
       {/* Issued credentials list */}
       {credentials.length > 0 && (
         <div className="card">
-          <p>Issued credentials ({credentials.length}):</p>
+          <p>Issued credentials ({filteredCredentials.length}/{credentials.length}):</p>
+          <input
+            type="text"
+            placeholder="Search by wallet address..."
+            value={credentialSearch}
+            onChange={e => setCredentialSearch(e.target.value)}
+            style={{ padding: '0.4rem 0.6rem', borderRadius: '4px', border: '1px solid #ccc', width: '100%', marginBottom: '0.5rem' }}
+          />
           <ul>
-            {credentials.map(({ account }) => (
+            {filteredCredentials.map(({ account }) => (
               <li key={account.subject.toBase58()} style={{ marginBottom: '0.4rem' }}>
-                {account.subject.toBase58().slice(0, 8)}… — {account.isRevoked ? (
+                <code style={{ fontSize: '0.8rem' }}>{account.subject.toBase58()}</code> — {account.isRevoked ? (
                   <span style={{ color: 'red' }}>Revoked</span>
                 ) : (
                   <>
@@ -458,11 +474,18 @@ function Admin() {
       {/* Registered voters list */}
       {voters.length > 0 && (
         <div className="card">
-          <p>Registered voters ({voters.length}):</p>
+          <p>Registered voters ({filteredVoters.length}/{voters.length}):</p>
+          <input
+            type="text"
+            placeholder="Search by wallet address..."
+            value={voterSearch}
+            onChange={e => setVoterSearch(e.target.value)}
+            style={{ padding: '0.4rem 0.6rem', borderRadius: '4px', border: '1px solid #ccc', width: '100%', marginBottom: '0.5rem' }}
+          />
           <ul>
-            {voters.map(({ account }) => (
+            {filteredVoters.map(({ account }) => (
               <li key={account.authority.toBase58()} style={{ marginBottom: '0.4rem' }}>
-                <code>{account.authority.toBase58().slice(0, 8)}…</code>
+                <code style={{ fontSize: '0.8rem' }}>{account.authority.toBase58()}</code>
                 {' — '}
                 <span className="fine-print">{account.did}</span>
               </li>
