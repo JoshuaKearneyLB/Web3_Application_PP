@@ -35,3 +35,42 @@ pub enum ErrorCode {
     #[msg("Poll must be closed before it can be deleted")]
     PollStillActive,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_error_variants_exist() {
+        // Exhaustive match — if any variant is removed, this fails to compile
+        let variants = [
+            ErrorCode::CustomError,
+            ErrorCode::DidTooLong,
+            ErrorCode::DidDocUriTooLong,
+            ErrorCode::DidDocHashLengthInvalid,
+            ErrorCode::CandidateNameTooLong,
+            ErrorCode::CandidateNameEmpty,
+            ErrorCode::AlreadyVoted,
+            ErrorCode::Unauthorized,
+            ErrorCode::VotingClosed,
+            ErrorCode::PollNameEmpty,
+            ErrorCode::PollNameTooLong,
+            ErrorCode::CredentialRevoked,
+            ErrorCode::CredentialSubjectMismatch,
+            ErrorCode::CredentialHashInvalid,
+            ErrorCode::IdentityHashInvalid,
+            ErrorCode::PollStillActive,
+        ];
+        assert_eq!(variants.len(), 16);
+    }
+
+    #[test]
+    fn test_variant_ordering() {
+        // Casting to u32 gives the variant index (0, 1, 2...) in declaration order.
+        // Anchor transforms these into 6000+ error codes internally at runtime.
+        assert_eq!(ErrorCode::CustomError as u32, 0);
+        assert_eq!(ErrorCode::DidTooLong as u32, 1);
+        assert_eq!(ErrorCode::DidDocUriTooLong as u32, 2);
+        assert_eq!(ErrorCode::PollStillActive as u32, 15);
+    }
+}

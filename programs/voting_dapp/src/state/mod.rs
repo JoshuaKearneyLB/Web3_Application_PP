@@ -107,3 +107,79 @@ pub struct Identity {
 impl Identity {
     pub const INIT_SPACE: usize = 1; // bump only
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_voter_init_space() {
+        // 32 authority + 4+64 did + 4+200 uri + 32 hash + 1 has_voted + 1 bump
+        assert_eq!(Voter::INIT_SPACE, 32 + 4 + 64 + 4 + 200 + 32 + 1 + 1);
+        assert_eq!(Voter::INIT_SPACE, 338);
+    }
+
+    #[test]
+    fn test_voter_max_did_len() {
+        assert_eq!(Voter::MAX_DID_LEN, 64);
+    }
+
+    #[test]
+    fn test_voter_max_doc_uri_len() {
+        assert_eq!(Voter::MAX_DOC_URI_LEN, 200);
+    }
+
+    #[test]
+    fn test_voter_doc_hash_len() {
+        // SHA-256 is always 32 bytes
+        assert_eq!(Voter::DOC_HASH_LEN, 32);
+    }
+
+    #[test]
+    fn test_candidate_init_space() {
+        // 32 poll + 4+64 name + 8 vote_count + 1 bump
+        assert_eq!(Candidate::INIT_SPACE, 32 + 4 + 64 + 8 + 1);
+        assert_eq!(Candidate::INIT_SPACE, 109);
+    }
+
+    #[test]
+    fn test_candidate_max_name_len() {
+        assert_eq!(Candidate::MAX_NAME_LEN, 64);
+    }
+
+    #[test]
+    fn test_poll_init_space() {
+        // 32 admin + 4+64 name + 1 is_active + 1 bump
+        assert_eq!(Poll::INIT_SPACE, 32 + 4 + 64 + 1 + 1);
+        assert_eq!(Poll::INIT_SPACE, 102);
+    }
+
+    #[test]
+    fn test_poll_max_name_len() {
+        assert_eq!(Poll::MAX_NAME_LEN, 64);
+    }
+
+    #[test]
+    fn test_vote_record_init_space() {
+        // 32 poll + 32 voter + 1 bump
+        assert_eq!(VoteRecord::INIT_SPACE, 32 + 32 + 1);
+        assert_eq!(VoteRecord::INIT_SPACE, 65);
+    }
+
+    #[test]
+    fn test_credential_init_space() {
+        // 32 issuer + 32 subject + 32 cred_hash + 32 id_hash + 1 revoked + 8 timestamp + 1 bump
+        assert_eq!(Credential::INIT_SPACE, 32 + 32 + 32 + 32 + 1 + 8 + 1);
+        assert_eq!(Credential::INIT_SPACE, 138);
+    }
+
+    #[test]
+    fn test_credential_doc_hash_len() {
+        assert_eq!(Credential::DOC_HASH_LEN, 32);
+    }
+
+    #[test]
+    fn test_identity_init_space() {
+        assert_eq!(Identity::INIT_SPACE, 1);
+    }
+}
